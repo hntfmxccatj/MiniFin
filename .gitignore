@@ -1,0 +1,24 @@
+# Python 虚拟环境
+venv/
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 数据库文件（含个人账单数据）
+wallet.db
+*.db-shm
+*.db-wal
+
+# 账单原始文件（敏感，个人财务数据）
+Bills Test/
+Bills/
+账单/
+
+# IDE 配置（可选共享）
+.vscode/
+
+# 系统文件
+.DS_Store
+Thumbs.db
