@@ -1,7 +1,8 @@
 """清空 bills 表数据"""
 import sqlite3
+from pathlib import Path
 
-DB = "wallet.db"
+DB = str(Path(__file__).parent.parent / "wallet.db")
 
 conn = sqlite3.connect(DB)
 count = conn.execute("SELECT COUNT(*) FROM bills").fetchone()[0]

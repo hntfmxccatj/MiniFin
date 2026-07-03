@@ -1,12 +1,25 @@
 """
 MiniFin 账单看板 - FastAPI 后端
 """
+import os
+import shutil
 import sqlite3
+import tempfile
 from pathlib import Path
+from typing import List
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+import pandas as pd
+
+from backend.parser import (
+    DB_PATH,
+    ensure_table as ensure_bills_table,
+    find_bill_files,
+    insert_to_db,
+    parse_files,
+)
 
 # 项目根目录 (backend/ 的上级目录)
 ROOT = Path(__file__).parent.parent
@@ -157,6 +170,81 @@ def get_counterparties(limit: int = Query(20, ge=1, le=100)):
             LIMIT ?
         """, [limit]).fetchall()
         return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+@app.get("/api/categories")
+def get_categories():
+    """获取所有分类配置 (major + sub)"""
+    conn = get_db()
+    try:
+        rows = conn.execute("""
+            SELECT id, major_category, sub_category
+            FROM categories
+            ORDER BY major_category, sub_category
+        """).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+@app.post("/api/upload")
+async def upload_bills(files: List[UploadFile] = File(...)):
+    """
+    拖拽上传微信 / 支付宝 CSV 账单文件。
+    解析后返回标准化数据，不入库（前端可预览后再批量保存）。
+    """
+    tmp_dir = Path(tempfile.mkdtemp(prefix="minifin_"))
+    saved = []
+    try:
+        for up in files:
+            if not up.filename.lower().endswith(".csv"):
+                continue
+            dest = tmp_dir / up.filename
+            with open(dest, "wb") as f:
+                shutil.copyfileobj(up.file, f)
+            saved.append(str(dest))
+
+        if not saved:
+            return {"records": [], "total": 0, "message": "未接收到 CSV 文件"}
+
+        # 合并解析所有文件
+        dfs = []
+        for fp in saved:
+            dfs.append(parse_files(fp))
+
+        if not dfs or all(d.empty for d in dfs):
+            return {"records": [], "total": 0, "message": "未能解析出有效记录"}
+
+
+        df = pd.concat(dfs, ignore_index=True)
+        # 去除内部重复（同一次上传里的同一笔交易）
+        df = df.drop_duplicates(subset=["id"], keep="first")
+        records = df.where(pd.notna(df), None).to_dict(orient="records")
+        # 金额和 ID 列需要正确处理 NaN
+        for r in records:
+            r["amount"] = round(float(r["amount"]), 2)
+            r["id"] = str(r["id"])
+        return {"records": records, "total": len(records)}
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+@app.post("/api/bills/batch")
+async def save_bills(request: Request):
+    """批量保存（含分类）到数据库"""
+    payload = await request.json()
+    records = payload.get("records", [])
+    if not records:
+        return {"total": 0, "inserted": 0, "skipped_duplicate": 0}
+
+    df = pd.DataFrame(records)
+    conn = get_db()
+    try:
+        ensure_bills_table(conn)
+        stats = insert_to_db(df, conn)
+        return stats
     finally:
         conn.close()
 

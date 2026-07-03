@@ -32,5 +32,11 @@ Bills data/
 .DS_Store
 Thumbs.db
 
+# 训练好的 ML 模型文件（可重新生成）
+models/
+
+# 临时 Excel 文件
+*.xlsx
+
 # CodeBuddy
 .codebuddy/
