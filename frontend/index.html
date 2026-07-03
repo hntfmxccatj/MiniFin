@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MiniFin 账单看板</title>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <style>
+        :root {
+            --bg: #f1f5f9;
+            --card-bg: #ffffff;
+            --border: #e2e8f0;
+            --text: #1e293b;
+            --text-muted: #64748b;
+            --accent: #0284c7;
+            --expense: #e11d48;
+            --income: #16a34a;
+            --refund: #d97706;
+            --wechat: #059669;
+            --alipay: #2563eb;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* ── 顶部导航 ── */
+        .navbar {
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .navbar .logo {
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .navbar .sub {
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        /* ── 布局 ── */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px 32px;
+        }
+
+        /* ── 汇总卡片 ── */
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .card .label {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+        .card .value {
+            font-size: 28px;
+            font-weight: 700;
+        }
+        .card .value.expense { color: var(--expense); }
+        .card .value.income { color: var(--income); }
+        .card .value.count { color: var(--accent); }
+
+        /* ── 图表区 ── */
+        .charts-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        @media (max-width: 900px) {
+            .charts-row { grid-template-columns: 1fr; }
+        }
+
+        /* ── 筛选栏 ── */
+        .filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 16px;
+            align-items: center;
+        }
+        .filters select, .filters input {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            outline: none;
+        }
+        .filters select:focus, .filters input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(2,132,199,0.1);
+        }
+        .filters input { width: 200px; }
+
+        .page-info {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-left: auto;
+        }
+
+        /* ── 数据表格 ── */
+        .table-wrapper {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .table-header {
+            padding: 16px 20px;
+            font-size: 16px;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            text-align: left;
+            padding: 12px 16px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+            background: #f8fafc;
+        }
+        td {
+            padding: 10px 16px;
+            font-size: 13px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        tr:hover td { background: #f8fafc; }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge.expense { background: #ffe4e6; color: var(--expense); }
+        .badge.income  { background: #dcfce7; color: var(--income); }
+        .badge.refund  { background: #fef3c7; color: var(--refund); }
+        .badge.wechat  { background: #d1fae5; color: var(--wechat); }
+        .badge.alipay  { background: #dbeafe; color: var(--alipay); }
+        .amount-expense { color: var(--expense); font-variant-numeric: tabular-nums; }
+        .amount-income  { color: var(--income); font-variant-numeric: tabular-nums; }
+
+        /* ── 分页 ── */
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 16px;
+        }
+        .pagination button {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.15s;
+        }
+        .pagination button:hover:not(:disabled) {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: #f0f9ff;
+        }
+        .pagination button:disabled { opacity: 0.4; cursor: default; }
+        .pagination button.active {
+            background: var(--accent);
+            color: #ffffff;
+            border-color: var(--accent);
+            font-weight: 600;
+        }
+
+        /* ── 加载 & 空状态 ── */
+        .loading, .empty {
+            text-align: center;
+            padding: 60px;
+            color: var(--text-muted);
+        }
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<!-- 顶部 -->
+<nav class="navbar">
+    <span class="logo">MiniFin</span>
+    <span class="sub">个人账单数据看板</span>
+</nav>
+
+<div class="container">
+    <!-- 汇总卡片 -->
+    <div class="summary-cards" id="summaryCards">
+        <div class="card">
+            <div class="label">总记录数</div>
+            <div class="value count" id="totalCount">--</div>
+        </div>
+        <div class="card">
+            <div class="label">总支出</div>
+            <div class="value expense" id="totalExpense">--</div>
+        </div>
+        <div class="card">
+            <div class="label">总收入</div>
+            <div class="value income" id="totalIncome">--</div>
+        </div>
+        <div class="card">
+            <div class="label">净收支</div>
+            <div class="value" id="netAmount" style="color: var(--accent);">--</div>
+        </div>
+    </div>
+
+    <!-- 图表行 -->
+    <div class="charts-row">
+        <div class="card" id="monthlyChart"></div>
+        <div class="card" id="typeChart"></div>
+    </div>
+
+    <div class="charts-row">
+        <div class="card" id="counterpartyChart"></div>
+        <div class="card" id="sourceChart"></div>
+    </div>
+
+    <!-- 数据表格 -->
+    <div class="table-wrapper">
+        <div class="table-header">
+            <span>账单明细</span>
+            <div class="filters">
+                <select id="filterSource" onchange="fetchBills()">
+                    <option value="">全部来源</option>
+                    <option value="WECHAT">微信</option>
+                    <option value="ALIPAY">支付宝</option>
+                </select>
+                <select id="filterType" onchange="fetchBills()">
+                    <option value="">全部类型</option>
+                    <option value="EXPENSE">支出</option>
+                    <option value="INCOME">收入</option>
+                    <option value="REFUND">退款</option>
+                </select>
+                <input type="text" id="filterKeyword" placeholder="搜索交易对方 / 商品..."
+                       oninput="debounceSearch()">
+            </div>
+        </div>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>交易时间</th>
+                        <th>来源</th>
+                        <th>类型</th>
+                        <th>金额</th>
+                        <th>交易对方</th>
+                        <th>商品</th>
+                        <th>支付方式</th>
+                    </tr>
+                </thead>
+                <tbody id="billsTableBody">
+                    <tr><td colspan="7" class="loading">加载中</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <!-- 分页 -->
+        <div class="pagination" id="pagination"></div>
+    </div>
+</div>
+
+<script>
+// ────────── 全局状态 ──────────
+const API = '/api/bills';
+let currentPage = 1;
+let totalPages = 1;
+let searchTimer = null;
+
+// ────────── 工具函数 ──────────
+function formatAmount(val) {
+    const n = Number(val);
+    if (n < 0) return `<span class="amount-expense">-¥${Math.abs(n).toFixed(2)}</span>`;
+    return `<span class="amount-income">+¥${n.toFixed(2)}</span>`;
+}
+
+function typeBadge(t) {
+    const map = { EXPENSE: '支出', INCOME: '收入', REFUND: '退款' };
+    return `<span class="badge ${t.toLowerCase()}">${map[t] || t}</span>`;
+}
+
+function sourceBadge(s) {
+    const map = { WECHAT: '微信', ALIPAY: '支付宝' };
+    return `<span class="badge ${s.toLowerCase()}">${map[s] || s}</span>`;
+}
+
+function debounceSearch() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => { currentPage = 1; fetchBills(); }, 300);
+}
+
+// ────────── 获取账单 ──────────
+async function fetchBills() {
+    const tbody = document.getElementById('billsTableBody');
+    tbody.innerHTML = '<tr><td colspan="7" class="loading">加载中</td></tr>';
+
+    const params = new URLSearchParams({
+        page: currentPage,
+        page_size: 20,
+        source: document.getElementById('filterSource').value,
+        type: document.getElementById('filterType').value,
+        keyword: document.getElementById('filterKeyword').value,
+    });
+
+    try {
+        const res = await fetch(`${API}?${params}`);
+        const json = await res.json();
+        totalPages = json.total_pages;
+
+        if (!json.data.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty">暂无数据</td></tr>';
+        } else {
+            tbody.innerHTML = json.data.map(r => `
+                <tr>
+                    <td>${r.trade_time || '-'}</td>
+                    <td>${sourceBadge(r.source)}</td>
+                    <td>${typeBadge(r.type)}</td>
+                    <td>${formatAmount(r.amount)}</td>
+                    <td>${r.counterparty || '-'}</td>
+                    <td>${r.product || '-'}</td>
+                    <td>${r.payment_method || '-'}</td>
+                </tr>
+            `).join('');
+        }
+        renderPagination();
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">加载失败，请检查后端服务</td></tr>';
+        console.error(e);
+    }
+}
+
+// ────────── 分页 ──────────
+function renderPagination() {
+    const pg = document.getElementById('pagination');
+    if (totalPages <= 1) { pg.innerHTML = ''; return; }
+
+    let html = '';
+    html += `<button ${currentPage === 1 ? 'disabled' : ''} onclick="goPage(${currentPage - 1})">‹ 上一页</button>`;
+    for (let i = 1; i <= totalPages; i++) {
+        html += `<button class="${i === currentPage ? 'active' : ''}" onclick="goPage(${i})">${i}</button>`;
+    }
+    html += `<button ${currentPage === totalPages ? 'disabled' : ''} onclick="goPage(${currentPage + 1})">下一页 ›</button>`;
+    html += `<span class="page-info">共 ${totalPages} 页</span>`;
+    pg.innerHTML = html;
+}
+
+function goPage(p) {
+    if (p < 1 || p > totalPages) return;
+    currentPage = p;
+    fetchBills();
+}
+
+// ────────── ApexCharts 通用 light 配置 ──────────
+const LIGHT = {
+    foreColor: '#64748b',
+    gridBorder: '#e2e8f0',
+    labelColor: '#64748b',
+    titleColor: '#1e293b',
+    tooltip: 'light',
+};
+
+// ────────── 摘要 & 图表 ──────────
+async function fetchSummary() {
+    try {
+        const res = await fetch('/api/bills/summary');
+        const s = await res.json();
+
+        // 更新汇总卡片
+        document.getElementById('totalCount').textContent = s.total_count;
+        document.getElementById('totalExpense').textContent = `-¥${Math.abs(s.total_expense).toFixed(2)}`;
+        document.getElementById('totalIncome').textContent = `+¥${s.total_income.toFixed(2)}`;
+        const net = s.total_income + s.total_expense;
+        const netEl = document.getElementById('netAmount');
+        netEl.textContent = net >= 0 ? `+¥${net.toFixed(2)}` : `-¥${Math.abs(net).toFixed(2)}`;
+        netEl.style.color = net >= 0 ? 'var(--income)' : 'var(--expense)';
+
+        // 图表 1: 月度收支柱状图
+        const months = s.monthly.map(m => m.month).reverse();
+        const monthExpense = s.monthly.map(m => Math.abs(m.expense)).reverse();
+        const monthIncome = s.monthly.map(m => m.income).reverse();
+
+        new ApexCharts(document.querySelector('#monthlyChart'), {
+            title: { text: '月度收支趋势', style: { color: LIGHT.titleColor, fontSize: '14px', fontWeight: 600 } },
+            chart: { type: 'bar', height: 320, foreColor: LIGHT.foreColor, background: 'transparent',
+                toolbar: { show: false } },
+            grid: { borderColor: LIGHT.gridBorder },
+            plotOptions: { bar: { borderRadius: 4, columnWidth: '55%' } },
+            series: [
+                { name: '支出', data: monthExpense, color: '#e11d48' },
+                { name: '收入', data: monthIncome, color: '#16a34a' },
+            ],
+            xaxis: { categories: months, labels: { style: { colors: LIGHT.labelColor } }, axisBorder: { color: LIGHT.gridBorder } },
+            yaxis: { labels: { style: { colors: LIGHT.labelColor }, formatter: v => '¥' + v } },
+            tooltip: { theme: LIGHT.tooltip, y: { formatter: v => '¥' + v.toFixed(2) } },
+            dataLabels: { enabled: false },
+        }).render();
+
+        // 图表 2: 类型分布环形图
+        const typeSeries = s.by_type.map(t => Math.abs(t.total_amount));
+        const typeLabels = s.by_type.map(t => {
+            const m = { EXPENSE: '支出', INCOME: '收入', REFUND: '退款' };
+            return m[t.type] || t.type;
+        });
+
+        new ApexCharts(document.querySelector('#typeChart'), {
+            title: { text: '收支类型分布', style: { color: LIGHT.titleColor, fontSize: '14px', fontWeight: 600 } },
+            chart: { type: 'donut', height: 320, background: 'transparent' },
+            labels: typeLabels,
+            series: typeSeries,
+            colors: ['#e11d48', '#16a34a', '#d97706'],
+            legend: { labels: { colors: LIGHT.labelColor } },
+            tooltip: { theme: LIGHT.tooltip, y: { formatter: v => '¥' + v.toFixed(2) } },
+            dataLabels: { style: { colors: [LIGHT.labelColor] } },
+            stroke: { width: 2 },
+            plotOptions: {
+                pie: {
+                    donut: {
+                        labels: {
+                            show: true,
+                            total: { show: true, color: LIGHT.labelColor, label: '总计' },
+                        },
+                    },
+                },
+            },
+        }).render();
+
+        // 图表 3: 交易对方 Top 10
+        fetch('/api/bills/counterparties?limit=10').then(r => r.json()).then(cps => {
+            if (!cps.length) return;
+            new ApexCharts(document.querySelector('#counterpartyChart'), {
+                title: { text: '支出排名 Top 10', style: { color: LIGHT.titleColor, fontSize: '14px', fontWeight: 600 } },
+                chart: { type: 'bar', height: 320, foreColor: LIGHT.foreColor, background: 'transparent',
+                    toolbar: { show: false } },
+                grid: { borderColor: LIGHT.gridBorder },
+                plotOptions: { bar: { borderRadius: 4, horizontal: true, barHeight: '70%' } },
+                series: [{ name: '支出金额', data: cps.map(c => Math.abs(c.total_amount)).reverse(),
+                    color: '#0284c7' }],
+                xaxis: { categories: cps.map(c => c.counterparty).reverse(),
+                    labels: { style: { colors: LIGHT.labelColor, fontSize: '11px' } },
+                    axisBorder: { color: LIGHT.gridBorder } },
+                yaxis: { labels: { style: { colors: LIGHT.labelColor } } },
+                tooltip: { theme: LIGHT.tooltip, x: { formatter: v => v },
+                    y: { formatter: v => '¥' + v.toFixed(2) } },
+                dataLabels: { enabled: false },
+            }).render();
+        });
+
+        // 图表 4: 来源分布
+        const srcLabels = s.by_source.map(x => x.source === 'WECHAT' ? '微信' : '支付宝');
+        const srcSeries = s.by_source.map(x => x.count);
+
+        new ApexCharts(document.querySelector('#sourceChart'), {
+            title: { text: '账单来源占比', style: { color: LIGHT.titleColor, fontSize: '14px', fontWeight: 600 } },
+            chart: { type: 'pie', height: 320, background: 'transparent' },
+            labels: srcLabels,
+            series: srcSeries,
+            colors: ['#059669', '#2563eb'],
+            legend: { labels: { colors: LIGHT.labelColor } },
+            tooltip: { theme: LIGHT.tooltip },
+            dataLabels: { style: { colors: [LIGHT.labelColor] } },
+        }).render();
+
+    } catch (e) {
+        console.error('获取摘要失败:', e);
+    }
+}
+
+// ────────── 启动 ──────────
+fetchSummary();
+fetchBills();
+</script>
+</body>
+</html>

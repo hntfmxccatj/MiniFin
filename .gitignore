@@ -1,24 +1,36 @@
 # Python 虚拟环境
 venv/
+.venv/
 
 # Python 缓存
 __pycache__/
 *.pyc
 *.pyo
+*.egg-info/
+dist/
+build/
 
 # 数据库文件（含个人账单数据）
 wallet.db
 *.db-shm
 *.db-wal
 
-# 账单原始文件（敏感，个人财务数据）
+# 账单原始 CSV 文件（敏感，个人财务数据）
 Bills Test/
 Bills/
+Bills data/
 账单/
+*.csv
 
-# IDE 配置（可选共享）
+# IDE 配置
 .vscode/
+.idea/
+*.swp
+*.swo
 
 # 系统文件
 .DS_Store
 Thumbs.db
+
+# CodeBuddy
+.codebuddy/
