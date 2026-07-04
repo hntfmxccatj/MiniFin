@@ -123,14 +123,23 @@ def train_text_classifier(
     le = LabelEncoder()
     y_enc = le.fit_transform(y)
 
-    # Split stratified
-    X_train, X_test, y_train, y_test = train_test_split(
-        X,
-        y_enc,
-        test_size=TEST_SIZE,
-        random_state=RANDOM_STATE,
-        stratify=y_enc,
-    )
+    # Split stratified，如果类别太少则退化为普通随机切分
+    try:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X,
+            y_enc,
+            test_size=TEST_SIZE,
+            random_state=RANDOM_STATE,
+            stratify=y_enc,
+        )
+    except ValueError:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X,
+            y_enc,
+            test_size=TEST_SIZE,
+            random_state=RANDOM_STATE,
+            stratify=None,
+        )
 
     # Character-level TF-IDF works well for short Chinese/English mixed text
     vectorizer = TfidfVectorizer(
@@ -148,7 +157,6 @@ def train_text_classifier(
         max_iter=1000,
         C=1.0,
         class_weight="balanced",
-        n_jobs=-1,
     )
     clf.fit(X_train_tfidf, y_train)
 
@@ -164,11 +172,14 @@ def train_text_classifier(
     print(f"Macro F1:  {macro_f1:.4f}")
     print(f"Weighted F1: {weighted_f1:.4f}")
     print("\nClassification report:")
+    # 使用 label 索引而非 target_names，确保数量匹配（某些稀有类可能不在测试集中）
+    unique_labels = sorted(set(y_test) | set(y_pred))
     print(
         classification_report(
             y_test,
             y_pred,
-            target_names=le.classes_,
+            labels=unique_labels,
+            target_names=[str(le.classes_[i]) for i in unique_labels],
             zero_division=0,
         )
     )

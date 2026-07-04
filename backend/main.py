@@ -13,13 +13,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import pandas as pd
 
+from backend.classifier import predict_categories
 from backend.parser import (
     DB_PATH,
     ensure_table as ensure_bills_table,
-    find_bill_files,
     insert_to_db,
     parse_files,
 )
+
 
 # 项目根目录 (backend/ 的上级目录)
 ROOT = Path(__file__).parent.parent
@@ -189,6 +190,26 @@ def get_categories():
         conn.close()
 
 
+@app.get("/api/categories/tree")
+def get_categories_tree():
+    """获取级联分类：{major_category: [sub_category1, sub_category2, ...]}"""
+    conn = get_db()
+    try:
+        rows = conn.execute("""
+            SELECT major_category, sub_category
+            FROM categories
+            ORDER BY major_category, sub_category
+        """).fetchall()
+        tree = {}
+        for r in rows:
+            major = r["major_category"]
+            sub = r["sub_category"]
+            tree.setdefault(major, []).append(sub)
+        return tree
+    finally:
+        conn.close()
+
+
 @app.post("/api/upload")
 async def upload_bills(files: List[UploadFile] = File(...)):
     """
@@ -226,6 +247,13 @@ async def upload_bills(files: List[UploadFile] = File(...)):
         for r in records:
             r["amount"] = round(float(r["amount"]), 2)
             r["id"] = str(r["id"])
+
+        # 自动预测 Major / Sub 分类并回填
+        predictions = predict_categories(records)
+        for r, (major, sub) in zip(records, predictions):
+            r["major_category"] = major
+            r["sub_category"] = sub
+
         return {"records": records, "total": len(records)}
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)

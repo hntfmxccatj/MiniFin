@@ -8,6 +8,11 @@ export async function fetchCounterparties(limit = 10) {
     return res.json();
 }
 
+export async function fetchCategories() {
+    const res = await fetch('/api/categories/tree');
+    return res.json();
+}
+
 export async function uploadFiles(files) {
     const form = new FormData();
     files.forEach(f => form.append('files', f));
@@ -23,3 +28,4 @@ export async function saveBills(records) {
     });
     return res.json();
 }
+

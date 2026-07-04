@@ -1,7 +1,31 @@
 import { formatAmount, typeBadge, sourceBadge } from '../utils.js';
+import { state } from '../state.js';
 
-export function DataTable(records, { title = '本次上传数据', emptyText = '暂无数据' } = {}) {
-    const rows = records.map(r => `
+export function DataTable(records, { title = '本次上传数据', emptyText = '暂无数据', editable = false } = {}) {
+    const options = state.categoryOptions || {};
+    const majors = Object.keys(options);
+
+    const rows = records.map((r, idx) => {
+        const currentMajor = r.major_category || '';
+        const currentSubs = options[currentMajor] || [];
+
+        const majorCell = editable
+            ? `<select class="cat-select major-select" data-row="${idx}">
+                <option value="" ${currentMajor ? '' : 'selected'}>- Major -</option>
+                ${majors.map(m => `<option value="${m}" ${m === currentMajor ? 'selected' : ''}>${m}</option>`).join('')}
+                ${currentMajor && !majors.includes(currentMajor) ? `<option value="${currentMajor}" selected>${currentMajor}</option>` : ''}
+               </select>`
+            : (r.major_category || '-');
+
+        const subCell = editable
+            ? `<select class="cat-select sub-select" data-row="${idx}">
+                <option value="" ${r.sub_category ? '' : 'selected'}>- Sub -</option>
+                ${currentSubs.map(s => `<option value="${s}" ${s === r.sub_category ? 'selected' : ''}>${s}</option>`).join('')}
+                ${r.sub_category && !currentSubs.includes(r.sub_category) ? `<option value="${r.sub_category}" selected>${r.sub_category}</option>` : ''}
+               </select>`
+            : (r.sub_category || '-');
+
+        return `
         <tr>
             <td>${r.trade_time || '-'}</td>
             <td>${sourceBadge(r.source)}</td>
@@ -10,13 +34,13 @@ export function DataTable(records, { title = '本次上传数据', emptyText = '
             <td>${r.counterparty || '-'}</td>
             <td>${r.product || '-'}</td>
             <td>${r.payment_method || '-'}</td>
-            <td>${r.major_category || '-'}</td>
-            <td>${r.sub_category || '-'}</td>
+            <td class="cell-major">${majorCell}</td>
+            <td class="cell-sub">${subCell}</td>
         </tr>
-    `).join('');
+    `}).join('');
 
     return `
-        <div class="table-wrapper">
+        <div class="table-wrapper" id="${editable ? 'editableTable' : ''}">
             <div class="table-header"><span>${title}</span></div>
             <div class="table-scroll">
                 <table>
@@ -39,3 +63,4 @@ export function DataTable(records, { title = '本次上传数据', emptyText = '
         </div>
     `;
 }
+

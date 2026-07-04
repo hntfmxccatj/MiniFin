@@ -1,5 +1,5 @@
 import { state } from '../state.js';
-import { uploadFiles, saveBills } from '../api.js';
+import { uploadFiles, saveBills, fetchCategories } from '../api.js';
 import { showToast } from '../utils.js';
 import { DataTable } from './DataTable.js';
 
@@ -33,8 +33,36 @@ export function UploadZone() {
 
 function renderUploadTable() {
     const container = document.getElementById('uploadTableContainer');
-    container.innerHTML = DataTable(state.uploadedRecords, { title: '本次上传数据' });
+    container.innerHTML = DataTable(state.uploadedRecords, { title: '本次上传数据（可编辑 Major / Sub）', editable: true });
     container.style.display = 'block';
+    bindCategorySelects();
+}
+
+function bindCategorySelects() {
+    const options = state.categoryOptions || {};
+
+    document.querySelectorAll('.major-select').forEach(sel => {
+        sel.addEventListener('change', e => {
+            const idx = Number(e.target.dataset.row);
+            const major = e.target.value;
+            state.uploadedRecords[idx].major_category = major;
+            state.uploadedRecords[idx].sub_category = '';
+
+            const subSelect = document.querySelector(`.sub-select[data-row="${idx}"]`);
+            const subs = options[major] || [];
+            subSelect.innerHTML = `
+                <option value="" selected>- Sub -</option>
+                ${subs.map(s => `<option value="${s}">${s}</option>`).join('')}
+            `;
+        });
+    });
+
+    document.querySelectorAll('.sub-select').forEach(sel => {
+        sel.addEventListener('change', e => {
+            const idx = Number(e.target.dataset.row);
+            state.uploadedRecords[idx].sub_category = e.target.value;
+        });
+    });
 }
 
 function clearUpload() {
@@ -47,6 +75,17 @@ function clearUpload() {
     document.getElementById('fileInput').value = '';
 }
 
+async function loadCategories() {
+    if (!state.categoryOptions) {
+        try {
+            state.categoryOptions = await fetchCategories();
+        } catch (e) {
+            console.error(e);
+            state.categoryOptions = {};
+        }
+    }
+}
+
 async function handleFiles(files) {
     const csvFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.csv'));
     if (!csvFiles.length) { showToast('请选择 CSV 文件', 'error'); return; }
@@ -56,6 +95,7 @@ async function handleFiles(files) {
     document.getElementById('uploadMeta').style.display = 'flex';
 
     try {
+        await loadCategories();
         const json = await uploadFiles(csvFiles);
         if (!json.records || !json.records.length) {
             showToast(json.message || '未解析到记录', 'error');
@@ -105,4 +145,8 @@ export function initUploadZone() {
     fileInput.addEventListener('change', e => handleFiles(e.target.files));
     document.getElementById('clearUploadBtn').addEventListener('click', clearUpload);
     document.getElementById('saveBtn').addEventListener('click', handleSave);
+
+    // 提前加载分类选项，避免上传时等待
+    loadCategories();
 }
+

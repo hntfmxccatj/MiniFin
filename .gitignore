@@ -28,9 +28,10 @@ Bills data/
 *.swp
 *.swo
 
-# 系统文件
-.DS_Store
-Thumbs.db
+# 训练模型产物（体积大，可重新生成）
+training/models/*.pkl
+*.pkl
+
 
 # 训练好的 ML 模型文件（可重新生成）
 models/
