@@ -149,13 +149,45 @@ body {
     width: 100%;
 }
 
-/* ── 汇总卡片 ── */
-.summary-cards {
+/* ── KPI 条 ── */
+.kpi-bar {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
     gap: 16px;
     margin-bottom: 24px;
 }
+.kpi-item {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.kpi-label {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+.kpi-value {
+    font-size: 26px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.kpi-value.expense { color: var(--expense); }
+.kpi-value.savings { color: var(--text-muted); }
+.kpi-value.savings.positive { color: var(--income); }
+
+@media (max-width: 900px) {
+    .kpi-bar { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+    .kpi-bar { grid-template-columns: 1fr; }
+}
+
+/* ── 通用卡片 ── */
 .card {
     background: var(--card-bg);
     border: 1px solid var(--border);
@@ -183,8 +215,19 @@ body {
     gap: 16px;
     margin-bottom: 24px;
 }
+.charts-row.full-width {
+    grid-template-columns: 1fr;
+}
+.charts-row.donut-merchant {
+    grid-template-columns: 1fr 2fr;
+}
 @media (max-width: 900px) {
-    .charts-row { grid-template-columns: 1fr; }
+    .charts-row,
+    .charts-row.donut-merchant { grid-template-columns: 1fr; }
+}
+.chart-card {
+    min-height: 360px;
+    padding: 16px;
 }
 
 /* ── 筛选栏 ── */
@@ -423,3 +466,325 @@ td select:focus { border-color: var(--accent); }
 .toast.show { transform: translateY(0); opacity: 1; }
 .toast.success { background: var(--income); }
 .toast.error { background: var(--expense); }
+
+/* ── 筛选栏 ── */
+.filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 16px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+}
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.filter-group label {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+.filter-group select,
+.filter-group input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    outline: none;
+    min-width: 120px;
+}
+.filter-group select:focus,
+.filter-group input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(2,132,199,0.1);
+}
+.filter-keyword {
+    flex: 1;
+    min-width: 180px;
+}
+.filter-keyword input {
+    width: 100%;
+}
+.filter-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+}
+
+/* ── 通用区块标题 ── */
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.section-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+/* ── 大额订单 ── */
+.large-orders-card {
+    margin-top: 20px;
+}
+.limit-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+.limit-selector select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    outline: none;
+}
+.large-orders-list .simple-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.large-orders-list .simple-table th {
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    background: #f8fafc;
+}
+.large-orders-list .simple-table td {
+    padding: 10px 12px;
+    font-size: 13px;
+    border-bottom: 1px solid #f1f5f9;
+}
+.large-orders-list .simple-table tr:hover td {
+    background: #f8fafc;
+}
+.large-orders-list .amount-cell {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.category-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    background: #f1f5f9;
+    color: var(--text-muted);
+}
+
+/* ── 现金流日历 ── */
+.calendar-card {
+    margin-top: 20px;
+}
+.calendar-nav {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.calendar-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    min-width: 90px;
+    text-align: center;
+}
+.btn-icon {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text);
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: all 0.15s;
+}
+.btn-icon:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-light);
+}
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+}
+.cal-weekday {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 8px 0;
+    font-weight: 600;
+}
+.cal-day {
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: #f8fafc;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    cursor: default;
+    transition: all 0.1s;
+    min-height: 40px;
+    padding: 4px 2px;
+}
+.cal-day:hover {
+    transform: scale(1.03);
+    border-color: var(--accent);
+    z-index: 1;
+}
+.cal-day-empty {
+    background: transparent;
+    border-color: transparent;
+    cursor: default;
+}
+.cal-day-empty:hover {
+    transform: none;
+    border-color: transparent;
+}
+.cal-day-clickable {
+    cursor: pointer;
+}
+.cal-day-selected {
+    box-shadow: 0 0 0 2px var(--accent);
+    border-color: var(--accent) !important;
+}
+.cal-day-number {
+    font-size: 13px;
+    color: var(--text);
+    font-weight: 600;
+    line-height: 1.2;
+}
+.cal-day-amount {
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+}
+.calendar-legend {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.legend-box {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 1px solid rgba(0,0,0,0.05);
+}
+.legend-box.level-1 { background: #ffedd5; }
+.legend-box.level-2 { background: #fdba74; }
+.legend-box.level-3 { background: #fb923c; }
+.legend-box.level-4 { background: #f97316; }
+.legend-box.level-5 { background: #c2410c; }
+
+.cal-day.level-0 { background: #f8fafc; }
+.cal-day.level-0 .cal-day-amount { display: none; }
+.cal-day.level-1 { background: #ffedd5; border-color: #fed7aa; }
+.cal-day.level-1 .cal-day-amount { color: #c2410c; }
+.cal-day.level-2 { background: #fdba74; border-color: #fb923c; }
+.cal-day.level-2 .cal-day-amount { color: #7c2d12; }
+.cal-day.level-3 { background: #fb923c; border-color: #f97316; }
+.cal-day.level-3 .cal-day-amount { color: #fff; }
+.cal-day.level-4 { background: #f97316; border-color: #ea580c; }
+.cal-day.level-4 .cal-day-amount { color: #fff; }
+.cal-day.level-4 .cal-day-number { color: #fff; }
+.cal-day.level-5 { background: #c2410c; border-color: #9a3412; }
+.cal-day.level-5 .cal-day-amount { color: #fff; }
+.cal-day.level-5 .cal-day-number { color: #fff; }
+
+/* ── 日历日期详情面板 ── */
+.day-detail {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+}
+.day-detail-empty {
+    text-align: center;
+    padding: 24px;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+.day-detail-loading {
+    text-align: center;
+    padding: 24px;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+.day-detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+.day-detail-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+}
+.day-detail-total {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+.day-detail-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+.day-detail-table th {
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    background: #f8fafc;
+}
+.day-detail-table td {
+    padding: 10px 12px;
+    font-size: 13px;
+    border-bottom: 1px solid #f1f5f9;
+}
+.day-detail-table tr:hover td {
+    background: #f8fafc;
+}
+
+@media (max-width: 768px) {
+    .filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .filter-actions {
+        margin-left: 0;
+    }
+    .cal-day {
+        min-height: 36px;
+        padding: 2px 1px;
+    }
+    .cal-day-number {
+        font-size: 12px;
+    }
+    .cal-day-amount {
+        font-size: 10px;
+    }
+}

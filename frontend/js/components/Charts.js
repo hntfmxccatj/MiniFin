@@ -1,5 +1,3 @@
-import { fetchCounterparties } from '../api.js';
-
 const LIGHT = {
     foreColor: '#64748b',
     gridBorder: '#e2e8f0',
@@ -8,71 +6,156 @@ const LIGHT = {
     tooltip: 'light',
 };
 
+const UNCATEGORIZED_COLOR = '#94a3b8';
+const chartInstances = [];
+
+function categoryColor(name) {
+    return name === '未分类' ? UNCATEGORIZED_COLOR : undefined;
+}
+
 export function Charts() {
     return `
-        <div class="charts-row">
-            <div class="card" id="monthlyChart"></div>
-            <div class="card" id="typeChart"></div>
+        <div class="charts-row full-width">
+            <div class="card chart-card" id="trendChart"></div>
         </div>
-        <div class="charts-row">
-            <div class="card" id="counterpartyChart"></div>
-            <div class="card" id="sourceChart"></div>
+        <div class="charts-row full-width">
+            <div class="card chart-card" id="categoryChart"></div>
         </div>
     `;
 }
 
-export async function renderCharts(s) {
-    const months = s.monthly.map(m => m.month).reverse();
-    const monthExpense = s.monthly.map(m => Math.abs(m.expense)).reverse();
-    const monthIncome = s.monthly.map(m => m.income).reverse();
+export async function renderCharts(categoryData) {
+    // 先销毁旧图表，防止内存泄漏和渲染叠加
+    chartInstances.forEach(chart => {
+        try { chart.destroy(); } catch (e) {}
+    });
+    chartInstances.length = 0;
 
-    new ApexCharts(document.querySelector('#monthlyChart'), {
-        title: { text: '月度收支趋势', style: { color: LIGHT.titleColor, fontSize: '14px', fontWeight: 600 } },
-        chart: { type: 'bar', height: 320, foreColor: LIGHT.foreColor, background: 'transparent', toolbar: { show: false } },
-        grid: { borderColor: LIGHT.gridBorder },
-        plotOptions: { bar: { borderRadius: 4, columnWidth: '55%' } },
-        series: [{ name: '支出', data: monthExpense, color: '#e11d48' }, { name: '收入', data: monthIncome, color: '#16a34a' }],
-        xaxis: { categories: months, labels: { style: { colors: LIGHT.labelColor } }, axisBorder: { color: LIGHT.gridBorder } },
-        yaxis: { labels: { style: { colors: LIGHT.labelColor }, formatter: v => '¥' + v } },
-        tooltip: { theme: LIGHT.tooltip, y: { formatter: v => '¥' + v.toFixed(2) } },
-        dataLabels: { enabled: false },
-    }).render();
+    await renderTrendChart(categoryData);
+    await renderCategoryChart(categoryData);
+}
 
-    const typeSeries = s.by_type.map(t => Math.abs(t.total_amount));
-    const typeLabels = s.by_type.map(t => ({ EXPENSE: '支出', INCOME: '收入', REFUND: '退款' }[t.type] || t.type));
-    new ApexCharts(document.querySelector('#typeChart'), {
-        title: { text: '收支类型分布', style: { color: LIGHT.titleColor, fontSize: '14px', fontWeight: 600 } },
-        chart: { type: 'donut', height: 320, background: 'transparent' },
-        labels: typeLabels, series: typeSeries, colors: ['#e11d48', '#16a34a', '#d97706'],
-        legend: { labels: { colors: LIGHT.labelColor } },
-        tooltip: { theme: LIGHT.tooltip, y: { formatter: v => '¥' + v.toFixed(2) } },
-        dataLabels: { style: { colors: [LIGHT.labelColor] } }, stroke: { width: 2 },
-        plotOptions: { pie: { donut: { labels: { show: true, total: { show: true, color: LIGHT.labelColor, label: '总计' } } } } },
-    }).render();
+async function renderTrendChart(catData) {
+    const el = document.querySelector('#trendChart');
+    if (!el) return;
 
-    const cps = await fetchCounterparties(10);
-    if (cps.length) {
-        new ApexCharts(document.querySelector('#counterpartyChart'), {
-            title: { text: '支出排名 Top 10', style: { color: LIGHT.titleColor, fontSize: '14px', fontWeight: 600 } },
-            chart: { type: 'bar', height: 320, foreColor: LIGHT.foreColor, background: 'transparent', toolbar: { show: false } },
-            grid: { borderColor: LIGHT.gridBorder },
-            plotOptions: { bar: { borderRadius: 4, horizontal: true, barHeight: '70%' } },
-            series: [{ name: '支出金额', data: cps.map(c => Math.abs(c.total_amount)).reverse(), color: '#0284c7' }],
-            xaxis: { categories: cps.map(c => c.counterparty).reverse(), labels: { style: { colors: LIGHT.labelColor, fontSize: '11px' } }, axisBorder: { color: LIGHT.gridBorder } },
-            yaxis: { labels: { style: { colors: LIGHT.labelColor } } },
-            tooltip: { theme: LIGHT.tooltip, x: { formatter: v => v }, y: { formatter: v => '¥' + v.toFixed(2) } },
-            dataLabels: { enabled: false },
-        }).render();
+    const { months, series } = catData;
+    if (!months || !months.length) {
+        el.innerHTML = '<div class="empty">暂无支出数据</div>';
+        return;
     }
 
-    const srcLabels = s.by_source.map(x => x.source === 'WECHAT' ? '微信' : '支付宝');
-    const srcSeries = s.by_source.map(x => x.count);
-    new ApexCharts(document.querySelector('#sourceChart'), {
-        title: { text: '账单来源占比', style: { color: LIGHT.titleColor, fontSize: '14px', fontWeight: 600 } },
-        chart: { type: 'pie', height: 320, background: 'transparent' },
-        labels: srcLabels, series: srcSeries, colors: ['#059669', '#2563eb'],
-        legend: { labels: { colors: LIGHT.labelColor } },
-        tooltip: { theme: LIGHT.tooltip },
-        dataLabels: { style: { colors: [LIGHT.labelColor] } },
-    }).render();
+    const chartSeries = series.map(s => ({
+        ...s,
+        color: categoryColor(s.name),
+    }));
+
+    const chart = new ApexCharts(el, {
+        title: {
+            text: '支出趋势（按分类堆叠）',
+            style: { color: LIGHT.titleColor, fontSize: '14px', fontWeight: 600 },
+        },
+        chart: {
+            type: 'area',
+            height: 360,
+            stacked: true,
+            foreColor: LIGHT.foreColor,
+            background: 'transparent',
+            toolbar: { show: false },
+            fontFamily: 'inherit',
+        },
+        grid: { borderColor: LIGHT.gridBorder, strokeDashArray: 4 },
+        stroke: { curve: 'smooth', width: 2 },
+        fill: { type: 'solid', opacity: 0.7 },
+        series: chartSeries,
+        xaxis: {
+            categories: months,
+            labels: { style: { colors: LIGHT.labelColor } },
+            axisBorder: { color: LIGHT.gridBorder },
+            axisTicks: { color: LIGHT.gridBorder },
+        },
+        yaxis: {
+            labels: {
+                style: { colors: LIGHT.labelColor },
+                formatter: v => '¥' + Number(v).toFixed(0),
+            },
+        },
+        tooltip: {
+            theme: LIGHT.tooltip,
+            y: { formatter: v => '¥' + Number(v).toFixed(2) },
+        },
+        legend: {
+            position: 'top',
+            horizontalAlign: 'left',
+            labels: { colors: LIGHT.labelColor },
+        },
+        dataLabels: { enabled: false },
+    });
+    chart.render();
+    chartInstances.push(chart);
+}
+
+async function renderCategoryChart(catData) {
+    const el = document.querySelector('#categoryChart');
+    if (!el) return;
+
+    const totals = catData.totals_by_major || [];
+    if (!totals.length) {
+        el.innerHTML = '<div class="empty">暂无分类数据</div>';
+        return;
+    }
+
+    const data = totals.map(t => ({
+        x: t.major_category || '未分类',
+        y: Math.abs(t.total_amount),
+        fillColor: categoryColor(t.major_category),
+    })).reverse();
+
+    const total = data.reduce((sum, d) => sum + d.y, 0);
+
+    const chart = new ApexCharts(el, {
+        title: {
+            text: `支出分类排名（总支出 ¥${total.toFixed(0)}）`,
+            style: { color: LIGHT.titleColor, fontSize: '14px', fontWeight: 600 },
+        },
+        chart: {
+            type: 'bar',
+            height: Math.max(260, 60 + data.length * 32),
+            foreColor: LIGHT.foreColor,
+            background: 'transparent',
+            toolbar: { show: false },
+            fontFamily: 'inherit',
+        },
+        grid: { borderColor: LIGHT.gridBorder },
+        plotOptions: {
+            bar: { borderRadius: 4, horizontal: true, barHeight: '65%' },
+        },
+        series: [{ name: '支出金额', data: data }],
+        colors: ['#0284c7'],
+        xaxis: {
+            labels: {
+                style: { colors: LIGHT.labelColor },
+                formatter: v => '¥' + Number(v).toFixed(0),
+            },
+            axisBorder: { color: LIGHT.gridBorder },
+        },
+        yaxis: {
+            labels: { style: { colors: LIGHT.labelColor, fontSize: '12px' } },
+        },
+        tooltip: {
+            theme: LIGHT.tooltip,
+            x: { formatter: v => v },
+            y: { formatter: v => '¥' + Number(v).toFixed(2) },
+        },
+        dataLabels: {
+            enabled: true,
+            style: { colors: [LIGHT.labelColor] },
+            formatter: (val) => {
+                const pct = total > 0 ? (val / total * 100).toFixed(1) : '0.0';
+                return `¥${Number(val).toFixed(0)} (${pct}%)`;
+            },
+        },
+    });
+    chart.render();
+    chartInstances.push(chart);
 }
