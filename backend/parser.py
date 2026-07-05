@@ -72,7 +72,7 @@ def generate_id(trade_time: str, amount: float, counterparty: str) -> str:
 # ══════════════════════════════════════════════════════════════════════
 
 def _peek_file_head(filepath: str) -> str:
-    """读取文件前 60 行用于类型识别，尝试常见编码"""
+    """读取文本文件前 60 行用于类型识别，尝试常见编码"""
     for enc in ["gbk", "gb18030", "utf-8", "utf-8-sig"]:
         try:
             with open(filepath, "r", encoding=enc) as f:
@@ -82,11 +82,27 @@ def _peek_file_head(filepath: str) -> str:
     return ""
 
 
+def _peek_excel_head(filepath: str, nrows: int = 20) -> str:
+    """读取 Excel 文件前 nrows 行并拼接成字符串，用于类型识别"""
+    try:
+        df = pd.read_excel(filepath, header=None, nrows=nrows, dtype=str)
+        return "\n".join(
+            " ".join(safe_str(cell) for cell in row)
+            for _, row in df.iterrows()
+        )
+    except Exception:
+        return ""
+
+
+def _is_excel(filepath: str) -> bool:
+    return filepath.lower().endswith(".xlsx")
+
+
 def is_wechat_csv(filepath: str) -> bool:
     fname = os.path.basename(filepath).lower()
     if "微信" in fname or "wechat" in fname:
         return True
-    head = _peek_file_head(filepath)
+    head = _peek_excel_head(filepath) if _is_excel(filepath) else _peek_file_head(filepath)
     return "微信支付账单" in head or "微信" in head
 
 
@@ -94,7 +110,7 @@ def is_alipay_csv(filepath: str) -> bool:
     fname = os.path.basename(filepath).lower()
     if "支付宝" in fname or "alipay" in fname:
         return True
-    head = _peek_file_head(filepath)
+    head = _peek_excel_head(filepath) if _is_excel(filepath) else _peek_file_head(filepath)
     return "支付宝账户" in head or "支付宝" in head
 
 
@@ -117,10 +133,10 @@ def find_bill_files(path: str) -> dict:
     if not os.path.isdir(path):
         return result
 
-    csv_files = sorted(
-        [os.path.join(path, f) for f in os.listdir(path) if f.lower().endswith(".csv")]
+    bill_files = sorted(
+        [os.path.join(path, f) for f in os.listdir(path) if f.lower().endswith((".csv", ".xlsx"))]
     )
-    for fp in csv_files:
+    for fp in bill_files:
         if is_wechat_csv(fp):
             result["wechat"].append(fp)
         elif is_alipay_csv(fp):
@@ -131,53 +147,87 @@ def find_bill_files(path: str) -> dict:
     return result
 
 
+def read_bill_file(filepath: str) -> pd.DataFrame:
+    """读取 csv / xlsx 账单文件，自动定位表头行，返回 DataFrame（字符串类型）"""
+    header_keyword = "交易时间"
+    ext = Path(filepath).suffix.lower()
+
+    if ext == ".xlsx":
+        df_raw = pd.read_excel(filepath, header=None, dtype=str)
+        header_row = None
+        for idx, row in df_raw.iterrows():
+            if any(header_keyword in safe_str(cell) for cell in row):
+                header_row = idx
+                break
+        if header_row is None:
+            raise ValueError(f"无法在 Excel 文件 {filepath} 中找到账单表头行")
+        df = pd.read_excel(filepath, header=header_row, dtype=str)
+    else:
+        encodings_to_try = ["utf-8", "utf-8-sig", "gbk", "gb18030"]
+        header_row = None
+        encoding = None
+        for enc in encodings_to_try:
+            try:
+                with open(filepath, "r", encoding=enc) as f:
+                    for idx, line in enumerate(f):
+                        if line.startswith(header_keyword):
+                            header_row = idx
+                            encoding = enc
+                            break
+                if header_row is not None:
+                    break
+            except (UnicodeDecodeError, FileNotFoundError):
+                continue
+        if header_row is None:
+            raise ValueError(f"无法在文件 {filepath} 中找到账单表头行")
+        df = pd.read_csv(filepath, encoding=encoding, skiprows=header_row, dtype=str)
+
+    df.columns = [c.strip() for c in df.columns]
+    return df
+
+
 # ══════════════════════════════════════════════════════════════════════
 #  微信账单解析
 # ══════════════════════════════════════════════════════════════════════
 
-WECHAT_INTERNAL_TRANSFER_TYPES = {
-    "零钱提现", "转入零钱通", "零钱充值", "转账-退回到零钱",
-}
-WECHAT_INTERNAL_TRANSFER_KEYWORDS = ["零钱通"]
+WECHAT_INTERNAL_TRANSFER_KEYWORDS = [
+    "零钱通", "零钱提现", "零钱充值", "退回到零钱", "信用卡还款"
+]
 
 
-def find_wechat_header_line(filepath: str) -> tuple:
-    """返回 (skip_rows, encoding)"""
-    encodings_to_try = ["utf-8", "utf-8-sig", "gbk", "gb18030"]
-    header_keywords = "交易时间"
-
-    for enc in encodings_to_try:
-        try:
-            with open(filepath, "r", encoding=enc) as f:
-                for idx, line in enumerate(f):
-                    if line.startswith(header_keywords):
-                        return idx, enc
-        except (UnicodeDecodeError, FileNotFoundError):
-            continue
-    raise ValueError(f"无法在文件 {filepath} 中找到微信账单表头行")
+def _is_wechat_internal_transfer(row: pd.Series) -> bool:
+    """判断微信记录是否为账户内部资金划转，不应计入真实收支。"""
+    trade_type = safe_str(row.get("交易类型", ""))
+    if any(kw in trade_type for kw in WECHAT_INTERNAL_TRANSFER_KEYWORDS):
+        return True
+    # 收/支为 "/" 通常表示微信内部流水（如转入零钱通），且交易对方和商品均为 "/"
+    income_expense = safe_str(row.get("收/支", ""))
+    counterparty = safe_str(row.get("交易对方", ""))
+    product = safe_str(row.get("商品", ""))
+    if income_expense == "/" and counterparty == "/" and product == "/":
+        return True
+    return False
 
 
 def parse_wechat(filepath: str, self_name: str = "") -> pd.DataFrame:
-    """解析微信支付账单 CSV，返回 DataFrame"""
+    """解析微信支付账单 CSV / XLSX，返回 DataFrame"""
     log.info(f"解析微信账单: {filepath}")
 
-    skip_rows, encoding = find_wechat_header_line(filepath)
-    df = pd.read_csv(filepath, encoding=encoding, skiprows=skip_rows, dtype=str)
-    df.columns = [c.strip() for c in df.columns]
+    df = read_bill_file(filepath)
     log.info(f"  读取 {len(df)} 行原始记录，列: {list(df.columns)}")
 
     # 过滤资产内部划转
-    if "交易类型" in df.columns:
-        mask_tt = df["交易类型"].apply(lambda x: safe_str(x) in WECHAT_INTERNAL_TRANSFER_TYPES)
-        df = df[~mask_tt]
-    if "交易对方" in df.columns:
-        mask_cp = df["交易对方"].apply(
-            lambda x: any(kw in safe_str(x) for kw in WECHAT_INTERNAL_TRANSFER_KEYWORDS)
-        )
-        if self_name:
-            mask_self = df["交易对方"].apply(lambda x: self_name in safe_str(x))
-            mask_cp = mask_cp | mask_self
-        df = df[~mask_cp]
+    if not df.empty:
+        mask_internal = df.apply(_is_wechat_internal_transfer, axis=1)
+        internal_count = mask_internal.sum()
+        if internal_count:
+            log.info(f"  过滤 {int(internal_count)} 条微信内部资金划转记录")
+        df = df[~mask_internal]
+
+    # 过滤与自身姓名的转账（可选）
+    if self_name and "交易对方" in df.columns:
+        mask_self = df["交易对方"].apply(lambda x: self_name in safe_str(x))
+        df = df[~mask_self]
 
     records = []
     skip_count = 0
@@ -248,29 +298,11 @@ def parse_wechat(filepath: str, self_name: str = "") -> pd.DataFrame:
 ALIPAY_INTERNAL_STATUS = {"资金转移", "信用还款", "还款成功"}
 
 
-def find_alipay_header_line(filepath: str) -> tuple:
-    """返回 (skip_rows, encoding)"""
-    encodings_to_try = ["gbk", "gb18030", "utf-8", "utf-8-sig"]
-    header_keyword = "交易时间"
-
-    for enc in encodings_to_try:
-        try:
-            with open(filepath, "r", encoding=enc) as f:
-                for idx, line in enumerate(f):
-                    if line.startswith(header_keyword):
-                        return idx, enc
-        except (UnicodeDecodeError, FileNotFoundError):
-            continue
-    raise ValueError(f"无法在文件 {filepath} 中找到支付宝账单表头行")
-
-
 def parse_alipay(filepath: str) -> pd.DataFrame:
-    """解析支付宝账单 CSV，返回 DataFrame"""
+    """解析支付宝账单 CSV / XLSX，返回 DataFrame"""
     log.info(f"解析支付宝账单: {filepath}")
 
-    skip_rows, encoding = find_alipay_header_line(filepath)
-    df = pd.read_csv(filepath, encoding=encoding, skiprows=skip_rows, dtype=str)
-    df.columns = [c.strip() for c in df.columns]
+    df = read_bill_file(filepath)
     log.info(f"  读取 {len(df)} 行原始记录，列: {list(df.columns)}")
 
     if "交易状态" in df.columns:

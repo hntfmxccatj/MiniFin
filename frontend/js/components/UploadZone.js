@@ -14,9 +14,9 @@ export function UploadZone() {
     return `
         <div class="upload-zone" id="uploadZone">
             ${uploadIcon}
-            <h3>拖拽微信 / 支付宝 CSV 账单到此处</h3>
+            <h3>拖拽微信 / 支付宝 CSV / XLSX 账单到此处</h3>
             <p>或点击选择文件，支持多选。数据解析后可在下方预览并检查</p>
-            <input type="file" id="fileInput" multiple accept=".csv">
+            <input type="file" id="fileInput" multiple accept=".csv,.xlsx">
         </div>
 
         <div class="upload-meta" id="uploadMeta" style="display:none;">
@@ -87,8 +87,8 @@ async function loadCategories() {
 }
 
 async function handleFiles(files) {
-    const csvFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.csv'));
-    if (!csvFiles.length) { showToast('请选择 CSV 文件', 'error'); return; }
+    const validFiles = Array.from(files).filter(f => /\.(csv|xlsx)$/.test(f.name.toLowerCase()));
+    if (!validFiles.length) { showToast('请选择 CSV 或 XLSX 文件', 'error'); return; }
 
     const status = document.getElementById('uploadStatus');
     status.textContent = '正在解析...';
@@ -96,7 +96,7 @@ async function handleFiles(files) {
 
     try {
         await loadCategories();
-        const json = await uploadFiles(csvFiles);
+        const json = await uploadFiles(validFiles);
         if (!json.records || !json.records.length) {
             showToast(json.message || '未解析到记录', 'error');
             status.textContent = '未解析到有效记录';

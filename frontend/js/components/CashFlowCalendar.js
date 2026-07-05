@@ -4,6 +4,7 @@ import { state } from '../state.js';
 let currentYear = new Date().getFullYear();
 let currentMonth = new Date().getMonth() + 1;
 let selectedDay = null;
+let dayDetailSort = { field: 'time', order: 'asc' };
 
 export function CashFlowCalendar() {
     return `
@@ -139,9 +140,10 @@ async function selectDay(day) {
 
 function renderDayDetail(year, month, day, bills) {
     const detail = document.getElementById('dayDetail');
-    const total = bills.reduce((sum, b) => sum + Math.abs(b.amount), 0);
+    const sortedBills = sortBills(bills);
+    const total = sortedBills.reduce((sum, b) => sum + Math.abs(b.amount), 0);
 
-    if (!bills.length) {
+    if (!sortedBills.length) {
         detail.innerHTML = `<div class="day-detail-empty">${month}月${day}日暂无支出明细</div>`;
         return;
     }
@@ -149,20 +151,25 @@ function renderDayDetail(year, month, day, bills) {
     detail.innerHTML = `
         <div class="day-detail-header">
             <span class="day-detail-title">${month}月${day}日 支出明细</span>
-            <span class="day-detail-total">共 ${bills.length} 笔，合计 ¥${total.toFixed(2)}</span>
+            <span class="day-detail-total">共 ${sortedBills.length} 笔，合计 ¥${total.toFixed(2)}</span>
         </div>
         <table class="simple-table day-detail-table">
             <thead>
                 <tr>
-                    <th>时间</th>
+                    <th class="${dayDetailSort.field === 'time' ? 'sorted' : ''}">
+                        时间 ${getSortIndicator('time')}
+                    </th>
                     <th>交易对方</th>
                     <th>商品</th>
                     <th>分类</th>
-                    <th class="amount-cell">金额</th>
+                    <th class="amount-cell sortable ${dayDetailSort.field === 'amount' ? 'sorted' : ''}"
+                        data-sort="amount" title="点击按金额排序">
+                        金额 ${getSortIndicator('amount')}
+                    </th>
                 </tr>
             </thead>
             <tbody>
-                ${bills.map(b => `
+                ${sortedBills.map(b => `
                     <tr>
                         <td>${formatTime(b.trade_time)}</td>
                         <td>${escapeHtml(b.counterparty || '未命名')}</td>
@@ -178,6 +185,18 @@ function renderDayDetail(year, month, day, bills) {
             </tbody>
         </table>
     `;
+
+    const amountHeader = detail.querySelector('th[data-sort="amount"]');
+    if (amountHeader) {
+        amountHeader.addEventListener('click', () => {
+            if (dayDetailSort.field === 'amount') {
+                dayDetailSort.order = dayDetailSort.order === 'asc' ? 'desc' : 'asc';
+            } else {
+                dayDetailSort = { field: 'amount', order: 'desc' };
+            }
+            renderDayDetail(year, month, day, bills);
+        });
+    }
 }
 
 function clearDayDetail() {
@@ -185,6 +204,28 @@ function clearDayDetail() {
     if (detail) {
         detail.innerHTML = '<div class="day-detail-empty">点击某一天查看详细支出</div>';
     }
+}
+
+function sortBills(bills) {
+    const sorted = [...bills];
+    sorted.sort((a, b) => {
+        if (dayDetailSort.field === 'time') {
+            const ta = a.trade_time || '';
+            const tb = b.trade_time || '';
+            return dayDetailSort.order === 'asc'
+                ? ta.localeCompare(tb)
+                : tb.localeCompare(ta);
+        }
+        const aa = Math.abs(a.amount);
+        const ab = Math.abs(b.amount);
+        return dayDetailSort.order === 'asc' ? aa - ab : ab - aa;
+    });
+    return sorted;
+}
+
+function getSortIndicator(field) {
+    if (dayDetailSort.field !== field) return '<span class="sort-indicator">⇅</span>';
+    return `<span class="sort-indicator">${dayDetailSort.order === 'asc' ? '↑' : '↓'}</span>`;
 }
 
 function getHeatLevel(amount, maxAmount) {

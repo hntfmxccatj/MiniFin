@@ -2,17 +2,17 @@
 账单解析与入库脚本
 
 功能：
-  - 读取微信支付 / 支付宝导出的原始 CSV 账单文件
+  - 读取微信支付 / 支付宝导出的原始 CSV / XLSX 账单文件
   - 完成清洗、规范化、去重
   - 写入本地 SQLite 数据库 wallet.db 的 bills 表
 
 用法：
-  1. 激活 venv 后，安装依赖：pip install pandas
-  2. 将微信和支付宝 CSV 文件放在当前目录
+  1. 激活 venv 后，安装依赖：pip install -r requirements.txt
+  2. 将微信和支付宝 CSV / XLSX 文件放在当前目录
   3. 运行时指定文件路径：
      python parse_bills.py --wechat 微信账单.csv
-     python parse_bills.py --alipay 支付宝账单.csv
-     python parse_bills.py --wechat WX.csv --alipay ALIPAY.csv
+     python parse_bills.py --alipay 支付宝账单.xlsx
+     python parse_bills.py --wechat WX.csv --alipay ALIPAY.xlsx
 
 从项目根目录运行:
      python -m db.parse_bills --wechat ...
@@ -81,13 +81,13 @@ def interactive_mode():
     alipay_path = None
 
     if choice in ("1", "3"):
-        wechat_path = input("请输入微信账单 CSV 所在文件夹路径（或单个 CSV 文件路径）: ").strip().strip('"')
+        wechat_path = input("请输入微信账单 CSV / XLSX 所在文件夹路径（或单个文件路径）: ").strip().strip('"')
         if not wechat_path:
             print("未输入路径，跳过微信账单。")
             wechat_path = None
 
     if choice in ("2", "3"):
-        alipay_path = input("请输入支付宝账单 CSV 所在文件夹路径（或单个 CSV 文件路径）: ").strip().strip('"')
+        alipay_path = input("请输入支付宝账单 CSV / XLSX 所在文件夹路径（或单个文件路径）: ").strip().strip('"')
         if not alipay_path:
             print("未输入路径，跳过支付宝账单。")
             alipay_path = None
@@ -111,17 +111,17 @@ def main():
             epilog="""
 示例:
     python parse_bills.py --wechat  微信支付账单.csv
-    python parse_bills.py --alipay  alipay_record.csv
-    python parse_bills.py --wechat WX.csv --alipay ALIPAY.csv --self-name 张三
+    python parse_bills.py --alipay  alipay_record.xlsx
+    python parse_bills.py --wechat WX.csv --alipay ALIPAY.xlsx --self-name 张三
 
 直接运行（不带参数）进入交互模式:
     python parse_bills.py
             """,
         )
         parser.add_argument("--wechat", type=str, default=None,
-                            help="微信支付导出的 CSV 文件路径")
+                            help="微信支付导出的 CSV / XLSX 文件路径")
         parser.add_argument("--alipay", type=str, default=None,
-                            help="支付宝导出的 CSV 文件路径")
+                            help="支付宝导出的 CSV / XLSX 文件路径")
         parser.add_argument("--self-name", type=str, default="",
                             help="你的姓名，用于过滤微信中与自身姓名相关的内部划转交易")
         parser.add_argument("--dry-run", action="store_true",

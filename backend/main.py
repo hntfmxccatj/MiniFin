@@ -498,14 +498,14 @@ def get_categories_tree():
 @app.post("/api/upload")
 async def upload_bills(files: List[UploadFile] = File(...)):
     """
-    拖拽上传微信 / 支付宝 CSV 账单文件。
+    拖拽上传微信 / 支付宝 CSV / XLSX 账单文件。
     解析后返回标准化数据，不入库（前端可预览后再批量保存）。
     """
     tmp_dir = Path(tempfile.mkdtemp(prefix="minifin_"))
     saved = []
     try:
         for up in files:
-            if not up.filename.lower().endswith(".csv"):
+            if not up.filename.lower().endswith((".csv", ".xlsx")):
                 continue
             dest = tmp_dir / up.filename
             with open(dest, "wb") as f:
@@ -513,7 +513,7 @@ async def upload_bills(files: List[UploadFile] = File(...)):
             saved.append(str(dest))
 
         if not saved:
-            return {"records": [], "total": 0, "message": "未接收到 CSV 文件"}
+            return {"records": [], "total": 0, "message": "未接收到 CSV 或 XLSX 文件"}
 
         # 合并解析所有文件
         dfs = []

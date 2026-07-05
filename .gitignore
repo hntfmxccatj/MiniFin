@@ -30,11 +30,34 @@ Bills data/
 
 # 训练模型产物（体积大，可重新生成）
 training/models/*.pkl
+training/models/*.json
 *.pkl
 
 
 # 训练好的 ML 模型文件（可重新生成）
 models/
+
+# 数据导出目录
+exports/
+
+# 后端上传时创建的临时目录
+minifin_*/
+
+# 临时分析文件
+record_inspect.json
+analysis_report.json
+category_stats.json
+category_valid_map.json
+
+# 环境变量文件
+.env
+.env.local
+
+# macOS 系统文件
+.DS_Store
+
+# 日志文件
+*.log
 
 # 临时 Excel 文件
 *.xlsx

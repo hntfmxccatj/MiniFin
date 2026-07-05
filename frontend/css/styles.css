@@ -768,6 +768,25 @@ td select:focus { border-color: var(--accent); }
 .day-detail-table tr:hover td {
     background: #f8fafc;
 }
+.day-detail-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s;
+}
+.day-detail-table th.sortable:hover {
+    color: var(--accent);
+}
+.day-detail-table th.sorted {
+    color: var(--accent);
+}
+.sort-indicator {
+    margin-left: 4px;
+    font-size: 10px;
+    color: var(--text-muted);
+}
+.day-detail-table th.sorted .sort-indicator {
+    color: var(--accent);
+}
 
 @media (max-width: 768px) {
     .filter-bar {

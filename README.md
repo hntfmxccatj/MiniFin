@@ -15,7 +15,7 @@
 | **顶部筛选栏** | 按时间范围 / 来源 / 关键词联动筛选所有看板数据 |
 | **现金流日历** | 按天查看支出热力，点击日期可展开当日明细 |
 | **大额订单** | 筛选范围内支出金额最大的 Top 5/10/15/20 笔交易 |
-| **机器学习分类** | 基于标注数据训练文本分类器，自动预测分类（`train_category_classifier.py`） |
+| **机器学习分类** | 基于已标注账单训练层级文本分类器，上传时自动预测 Major / Sub（`training/train_from_bills.py`） |
 | **数据库工具** | 脚本化建库、清空、分类种子数据 |
 
 ---
@@ -107,6 +107,7 @@ MiniFin/
 │           └── UploadPage.js
 │
 └── training/                     # 分类模型训练
+    ├── train_from_bills.py       # 从数据库训练层级分类模型（推荐）
     ├── train_category_classifier.py
     ├── Training Data.csv
     └── models/                   # 模型工件（gitignored）
@@ -126,6 +127,55 @@ MiniFin/
 | `GET /api/bills/by_day` | 某日支出明细 |
 | `POST /api/upload` | 上传 CSV 账单预览 |
 | `POST /api/bills/batch` | 批量保存账单 |
+
+---
+
+## 自动分类模型训练
+
+MiniFin 使用账单中的手动分类记录训练文本分类器，在上传新账单时自动预测 Major / Sub 两层分类。
+
+### 训练流程
+
+1. **读取训练数据**：从 `wallet.db` 的 `bills` 表中读取已标注 `major_category` 和 `sub_category` 的记录。
+2. **权威映射校验**：以 `categories` 表定义的 Major-Sub 关系为唯一权威来源，过滤掉 bills 中与其不一致的标注。
+3. **特征构建**：将以下字段拼接为模型输入文本：
+   - `counterparty`（交易对方）
+   - `product`（商品）
+   - `payment_method`（支付方式）
+   - `source`（WECHAT / ALIPAY）
+   - 原始账单中的 `交易类型`（如“商户消费”“扫二维码付款”等）
+4. **文本向量化**：使用 TF-IDF（`char_wb` 2-5 gram），适合中英文混合的短文本。
+5. **层级分类器**：
+   - 先训练一个 **Major 分类器** 预测一级分类；
+   - 再为每个 Major 单独训练一个 **Sub 分类器**，仅学习该 Major 下的 Sub 分布；
+   - 预测时先得到 Major，再用对应 Major 的 Sub 分类器预测 Sub，确保 Sub 一定属于该 Major。
+6. **约束兜底**：若 Sub 分类器不存在或预测失败，自动 fallback 到该 Major 下最常见的合法 Sub。
+
+### 训练命令
+
+```bash
+source venv/Scripts/activate
+python -m training.train_from_bills
+```
+
+训练完成后，模型工件保存到 `training/models/`：
+
+- `tfidf_vectorizer.pkl`
+- `major_classifier.pkl` / `major_label_encoder.pkl`
+- `sub_classifiers.pkl` / `sub_label_encoders.pkl`
+- `major_sub_map.json`（来自 `categories` 表的权威映射）
+- `fallback_sub.json`
+- `metrics.json`
+
+### 自动加载
+
+`backend/classifier.py` 会检测模型文件修改时间。重新训练后，后端无需重启，再次上传账单预览时即自动使用最新模型。
+
+### 提升模型效果的建议
+
+- 模型准确率直接取决于已标注数据量和分布均衡性。
+- 优先补充样本较少的 Sub 类别（如 `Sports`、`Social`、`Trip & Holiday`、`Goals` 等）。
+- 若发现某条记录的 Major/Sub 标注与 `categories` 表定义冲突，修正后重新训练即可。
 
 ---
 
