@@ -18,13 +18,14 @@ export function Charts() {
         <div class="charts-row full-width">
             <div class="card chart-card" id="trendChart"></div>
         </div>
-        <div class="charts-row full-width">
+        <div class="charts-row">
+            <div class="card chart-card" id="budgetChart"></div>
             <div class="card chart-card" id="categoryChart"></div>
         </div>
     `;
 }
 
-export async function renderCharts(categoryData) {
+export async function renderCharts(categoryData, budgetData) {
     // 先销毁旧图表，防止内存泄漏和渲染叠加
     chartInstances.forEach(chart => {
         try { chart.destroy(); } catch (e) {}
@@ -32,6 +33,7 @@ export async function renderCharts(categoryData) {
     chartInstances.length = 0;
 
     await renderTrendChart(categoryData);
+    await renderBudgetChart(budgetData);
     await renderCategoryChart(categoryData);
 }
 
@@ -90,6 +92,83 @@ async function renderTrendChart(catData) {
             labels: { colors: LIGHT.labelColor },
         },
         dataLabels: { enabled: false },
+    });
+    chart.render();
+    chartInstances.push(chart);
+}
+
+async function renderBudgetChart(budgetData) {
+    const el = document.querySelector('#budgetChart');
+    if (!el) return;
+
+    const groups = budgetData?.groups || [];
+    if (!groups.length) {
+        el.innerHTML = '<div class="empty">暂无预算分组数据</div>';
+        return;
+    }
+
+    const labels = groups.map(g => g.budget_group);
+    const series = groups.map(g => Math.abs(g.total_amount));
+    const total = budgetData?.total || series.reduce((a, b) => a + b, 0);
+
+    const palette = {
+        'Needs': '#2563eb',
+        'Wants': '#d97706',
+        'Savings & Debt': '#7c3aed',
+        'Uncategorized': '#94a3b8',
+        'Income': '#0d9488',
+    };
+
+    const chart = new ApexCharts(el, {
+        title: {
+            text: `预算分组支出占比（总支出 ¥${total.toFixed(0)}）`,
+            style: { color: LIGHT.titleColor, fontSize: '14px', fontWeight: 600 },
+        },
+        chart: {
+            type: 'donut',
+            height: 360,
+            foreColor: LIGHT.foreColor,
+            background: 'transparent',
+            toolbar: { show: false },
+            fontFamily: 'inherit',
+        },
+        series,
+        labels,
+        colors: labels.map(l => palette[l] || '#64748b'),
+        plotOptions: {
+            pie: {
+                donut: {
+                    size: '55%',
+                    labels: {
+                        show: true,
+                        name: { fontSize: '13px' },
+                        value: {
+                            fontSize: '14px',
+                            fontWeight: 600,
+                            formatter: v => '¥' + Number(v).toFixed(0),
+                        },
+                        total: {
+                            show: true,
+                            label: '总支出',
+                            formatter: () => '¥' + total.toFixed(0),
+                        },
+                    },
+                },
+            },
+        },
+        legend: {
+            position: 'bottom',
+            labels: { colors: LIGHT.labelColor },
+        },
+        tooltip: {
+            theme: LIGHT.tooltip,
+            y: { formatter: v => '¥' + Number(v).toFixed(2) },
+        },
+        dataLabels: {
+            enabled: true,
+            formatter: (val) => val.toFixed(1) + '%',
+            style: { colors: ['#fff'] },
+        },
     });
     chart.render();
     chartInstances.push(chart);

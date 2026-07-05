@@ -1,0 +1,47 @@
+{
+  "major_counts": {
+    "Everyday Expenses": 790,
+    "Quality of Life": 163,
+    "Bills": 47,
+    "Irregular And Annual Expenses": 35,
+    "Goals": 2
+  },
+  "major_sub": {
+    "Bills": {
+      "TV, phone and internet": 18,
+      "AI Subscription": 3,
+      "Rent": 10,
+      "Annual Subscriptions": 14,
+      "HairCut": 2
+    },
+    "Everyday Expenses": {
+      "Diet": 530,
+      "Transportation": 73,
+      "Health": 15,
+      "Grocery": 100,
+      "Sports": 1,
+      "Pets": 51,
+      "Home Maintenance": 8,
+      "Household Supplies": 12
+    },
+    "Goals": {
+      "Investments": 2
+    },
+    "Irregular And Annual Expenses": {
+      "Tech & Others": 14,
+      "Entertainment": 2,
+      "Diet": 6,
+      "Trip & Holiday": 13
+    },
+    "Quality of Life": {
+      "Social": 11,
+      "Drinks": 77,
+      "Diet": 10,
+      "Entertainment": 22,
+      "Stuff I forgot to plan for": 2,
+      "Clothing": 33,
+      "Sports": 6,
+      "Snacks": 2
+    }
+  }
+}

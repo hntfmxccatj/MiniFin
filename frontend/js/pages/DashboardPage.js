@@ -1,4 +1,5 @@
 import {
+    fetchBudgetSummary,
     fetchExpenseByCategory,
     fetchLargeOrders,
     fetchSummary,
@@ -53,13 +54,14 @@ async function loadDashboardData() {
         const filters = { ...state.filters };
         const limit = getLargeOrderLimit();
 
-        const [summary, categoryData] = await Promise.all([
+        const [summary, categoryData, budgetData] = await Promise.all([
             fetchSummary(filters),
             fetchExpenseByCategory(filters),
+            fetchBudgetSummary(filters),
         ]);
 
         updateSummaryCards(summary);
-        await renderCharts(categoryData);
+        await renderCharts(categoryData, budgetData);
 
         // 日历优先展示筛选范围内最新有支出的月份
         const calYearMonth = getCalendarMonth(summary.monthly, filters.end_date);

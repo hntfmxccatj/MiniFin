@@ -68,6 +68,101 @@ def generate_id(trade_time: str, amount: float, counterparty: str) -> str:
 
 
 # ══════════════════════════════════════════════════════════════════════
+#  支出-退款配对去除
+# ══════════════════════════════════════════════════════════════════════
+
+import re
+from datetime import datetime
+
+
+def _normalize_product_for_pairing(product: str) -> str:
+    """去除商品名中的退款前缀，用于配对比较。"""
+    p = safe_str(product)
+    for prefix in ["退款-", "退款"]:
+        if p.startswith(prefix):
+            p = p[len(prefix):]
+    return p.strip()
+
+
+def _extract_order_number(product: str) -> str | None:
+    """从商品名中提取 15 位以上的订单号。"""
+    m = re.search(r"\d{15,}", safe_str(product))
+    return m.group(0) if m else None
+
+
+def _records_form_refund_pair(expense: pd.Series, refund: pd.Series, max_days: int = 7) -> bool:
+    """判断一笔 EXPENSE 和一笔 REFUND 是否为同一订单的成对记录。"""
+    if expense.get("source") != refund.get("source"):
+        return False
+    if abs(safe_float(expense.get("amount", 0))) != abs(safe_float(refund.get("amount", 0))):
+        return False
+
+    exp_time = safe_str(expense.get("trade_time", ""))
+    ref_time = safe_str(refund.get("trade_time", ""))
+    if not exp_time or not ref_time:
+        return False
+    try:
+        exp_dt = datetime.strptime(exp_time, "%Y-%m-%d %H:%M:%S")
+        ref_dt = datetime.strptime(ref_time, "%Y-%m-%d %H:%M:%S")
+        if abs((ref_dt - exp_dt).total_seconds()) > max_days * 24 * 3600:
+            return False
+    except Exception:
+        return False
+
+    exp_cp = safe_str(expense.get("counterparty", ""))
+    ref_cp = safe_str(refund.get("counterparty", ""))
+    cp_match = ref_cp == exp_cp or ref_cp in ("/", "")
+    if not cp_match:
+        return False
+
+    exp_product = _normalize_product_for_pairing(expense.get("product", ""))
+    ref_product = _normalize_product_for_pairing(refund.get("product", ""))
+    exp_order = _extract_order_number(exp_product)
+    ref_order = _extract_order_number(ref_product)
+
+    product_match = (
+        exp_product == ref_product
+        or (exp_order and ref_order and exp_order == ref_order)
+        or (exp_order and exp_order in safe_str(refund.get("product", "")))
+        or (ref_order and ref_order in safe_str(expense.get("product", "")))
+    )
+    return product_match
+
+
+def remove_refund_pairs(df: pd.DataFrame, max_days: int = 7) -> pd.DataFrame:
+    """
+    从解析后的账单中去除成对的支出+退款记录。
+    用户不需要保留已全额退款的交易痕迹。
+    """
+    if df.empty:
+        return df
+
+    df = df.reset_index(drop=True)
+    expenses = df[df["type"] == "EXPENSE"].copy()
+    refunds = df[df["type"] == "REFUND"].copy()
+    if expenses.empty or refunds.empty:
+        return df
+
+    drop_indices = set()
+    used_refund_indices = set()
+
+    for exp_idx, exp in expenses.iterrows():
+        for ref_idx, ref in refunds.iterrows():
+            if ref_idx in used_refund_indices:
+                continue
+            if _records_form_refund_pair(exp, ref, max_days=max_days):
+                drop_indices.add(exp_idx)
+                drop_indices.add(ref_idx)
+                used_refund_indices.add(ref_idx)
+                break
+
+    if drop_indices:
+        log.info(f"  去除 {len(drop_indices) // 2} 对支出+退款记录")
+        df = df.drop(index=list(drop_indices)).reset_index(drop=True)
+    return df
+
+
+# ══════════════════════════════════════════════════════════════════════
 #  文件类型识别
 # ══════════════════════════════════════════════════════════════════════
 
@@ -404,7 +499,10 @@ def parse_files(path: str, self_name: str = "") -> pd.DataFrame:
     if not dfs:
         return pd.DataFrame()
 
-    return pd.concat(dfs, ignore_index=True)
+    df = pd.concat(dfs, ignore_index=True)
+    # 去除同一次上传中的成对支出+退款记录
+    df = remove_refund_pairs(df)
+    return df
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -432,10 +530,61 @@ def ensure_table(conn: sqlite3.Connection):
     conn.commit()
 
 
+def _remove_existing_expense_for_refund(refund: pd.Series, cursor: sqlite3.Cursor) -> int:
+    """
+    如果数据库中已存在与这笔退款对应的支出记录，则删除该支出记录。
+    返回删除的记录数。
+    """
+    if refund.get("type") != "REFUND":
+        return 0
+
+    amount = abs(safe_float(refund.get("amount", 0)))
+    source = safe_str(refund.get("source", ""))
+    trade_time = safe_str(refund.get("trade_time", ""))
+    counterparty = safe_str(refund.get("counterparty", ""))
+    product = safe_str(refund.get("product", ""))
+    product_norm = _normalize_product_for_pairing(product)
+    order_number = _extract_order_number(product)
+
+    if not amount or not source or not trade_time:
+        return 0
+
+    # 查询候选支出记录：同来源、同金额绝对值、时间前后 7 天内
+    cursor.execute(
+        """
+        SELECT id, trade_time, counterparty, product
+        FROM bills
+        WHERE type = 'EXPENSE'
+          AND source = ?
+          AND ABS(amount) = ?
+          AND trade_time BETWEEN datetime(?, '-7 days') AND datetime(?, '+7 days')
+        """,
+        (source, amount, trade_time, trade_time),
+    )
+    candidates = cursor.fetchall()
+
+    deleted = 0
+    for cid, ctime, ccp, cproduct in candidates:
+        cproduct_norm = _normalize_product_for_pairing(cproduct)
+        corder = _extract_order_number(cproduct)
+        cp_match = counterparty in ("/", "") or ccp == counterparty
+        product_match = (
+            product_norm == cproduct_norm
+            or (order_number and corder and order_number == corder)
+            or (order_number and order_number in cproduct)
+            or (corder and corder in product)
+        )
+        if cp_match and product_match:
+            cursor.execute("DELETE FROM bills WHERE id = ?", (cid,))
+            deleted += cursor.rowcount
+            break
+    return deleted
+
+
 def insert_to_db(df: pd.DataFrame, conn: sqlite3.Connection) -> dict:
-    """将 DataFrame 写入 SQLite，使用 INSERT OR IGNORE 基于 id 去重"""
+    """将 DataFrame 写入 SQLite，使用 INSERT OR IGNORE 基于 id 去重，并自动清理成对退款"""
     if df.empty:
-        return {"total": 0, "inserted": 0, "skipped_duplicate": 0}
+        return {"total": 0, "inserted": 0, "skipped_duplicate": 0, "refund_pairs_removed": 0}
 
     columns = [
         "id", "source", "raw_id", "trade_time", "amount", "type",
@@ -448,11 +597,17 @@ def insert_to_db(df: pd.DataFrame, conn: sqlite3.Connection) -> dict:
     cursor = conn.cursor()
     inserted = 0
     skipped = 0
+    refund_pairs_removed = 0
 
     placeholders = ", ".join(["?"] * len(columns))
     sql = f"INSERT OR IGNORE INTO {TABLE_NAME} ({', '.join(columns)}) VALUES ({placeholders})"
 
     for _, row in df.iterrows():
+        # 如果是退款记录，先尝试删除数据库中对应的支出记录，并跳过插入该退款
+        if row.get("type") == "REFUND":
+            refund_pairs_removed += _remove_existing_expense_for_refund(row, cursor)
+            continue
+
         values = [row[col] for col in columns]
         try:
             cursor.execute(sql, values)
@@ -464,4 +619,9 @@ def insert_to_db(df: pd.DataFrame, conn: sqlite3.Connection) -> dict:
             log.warning(f"  写入失败: {e} | {row.to_dict()}")
 
     conn.commit()
-    return {"total": total, "inserted": inserted, "skipped_duplicate": skipped}
+    return {
+        "total": total,
+        "inserted": inserted,
+        "skipped_duplicate": skipped,
+        "refund_pairs_removed": refund_pairs_removed,
+    }

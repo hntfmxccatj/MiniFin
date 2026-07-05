@@ -26,6 +26,7 @@ conn.execute("""
 conn.execute("""
     CREATE TABLE IF NOT EXISTS categories (
         id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        budget_group    TEXT,
         major_category  TEXT NOT NULL,
         sub_category    TEXT NOT NULL,
         UNIQUE(major_category, sub_category)

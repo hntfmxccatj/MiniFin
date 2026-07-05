@@ -361,6 +361,55 @@ def get_expense_by_category(
         conn.close()
 
 
+@app.get("/api/bills/budget_summary")
+def get_budget_summary(
+    start_date: str = Query("", description="YYYY-MM-DD"),
+    end_date: str = Query("", description="YYYY-MM-DD"),
+    source: str = Query("", description="WECHAT / ALIPAY"),
+    keyword: str = Query("", description="搜索交易对方或商品"),
+):
+    """按 Needs / Wants / Savings & Debt / Uncategorized 汇总支出占比"""
+    conn = get_db()
+    try:
+        where, params = _build_filter_conditions(source, keyword, start_date, end_date)
+        where.append("b.type = 'EXPENSE'")
+        where_clause = _where_clause(where)
+
+        rows = conn.execute(
+            f"""
+            SELECT COALESCE(NULLIF(c.budget_group, ''), 'Uncategorized') as budget_group,
+                   SUM(ABS(b.amount)) as total_amount
+            FROM bills b
+            LEFT JOIN categories c
+                   ON b.major_category = c.major_category
+                  AND b.sub_category = c.sub_category
+            WHERE {where_clause}
+            GROUP BY budget_group
+            ORDER BY total_amount DESC
+            """,
+            params,
+        ).fetchall()
+
+        groups = [dict(r) for r in rows]
+        total = sum(g["total_amount"] or 0 for g in groups)
+
+        for g in groups:
+            amount = g["total_amount"] or 0
+            g["total_amount"] = round(amount, 2)
+            g["percentage"] = round(amount / total * 100, 2) if total > 0 else 0
+
+        # 固定顺序，便于图表展示
+        order = ["Needs", "Wants", "Savings & Debt", "Uncategorized", "Income"]
+        groups.sort(key=lambda g: order.index(g["budget_group"]) if g["budget_group"] in order else 99)
+
+        return {
+            "total": round(total, 2),
+            "groups": groups,
+        }
+    finally:
+        conn.close()
+
+
 @app.get("/api/bills/large_orders")
 def get_large_orders(
     limit: int = Query(5, ge=1, le=100),

@@ -1,0 +1,48 @@
+{
+  "Goals": [
+    "Emergency Fund",
+    "General Savings",
+    "Investments"
+  ],
+  "Liability": [
+    "Bai Tiao",
+    "Credit Card",
+    "Hua Bei"
+  ],
+  "Quality of Life": [
+    "Clothing",
+    "Dining out",
+    "Drinks",
+    "Education & Courses",
+    "Entertainment",
+    "Pets",
+    "Snacks",
+    "Social",
+    "Sports",
+    "Stuff I forgot to plan for"
+  ],
+  "Everyday Expenses": [
+    "Diet",
+    "Grocery",
+    "Health",
+    "Home Maintenance",
+    "Household Supplies",
+    "Pets",
+    "Transportation"
+  ],
+  "Bills": [
+    "AI Subscription",
+    "Annual Subscriptions",
+    "HairCut",
+    "Rent",
+    "TV, phone and internet"
+  ],
+  "Irregular And Annual Expenses": [
+    "Household Supplies (Bulk)",
+    "Tech & Others",
+    "Trip & Holiday"
+  ],
+  "Salary": [
+    "Salary"
+  ]
+}

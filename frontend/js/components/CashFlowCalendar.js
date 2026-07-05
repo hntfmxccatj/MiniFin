@@ -156,7 +156,8 @@ function renderDayDetail(year, month, day, bills) {
         <table class="simple-table day-detail-table">
             <thead>
                 <tr>
-                    <th class="${dayDetailSort.field === 'time' ? 'sorted' : ''}">
+                    <th class="sortable ${dayDetailSort.field === 'time' ? 'sorted' : ''}"
+                        data-sort="time" title="点击按时间排序">
                         时间 ${getSortIndicator('time')}
                     </th>
                     <th>交易对方</th>
@@ -186,17 +187,18 @@ function renderDayDetail(year, month, day, bills) {
         </table>
     `;
 
-    const amountHeader = detail.querySelector('th[data-sort="amount"]');
-    if (amountHeader) {
-        amountHeader.addEventListener('click', () => {
-            if (dayDetailSort.field === 'amount') {
+    detail.querySelectorAll('th[data-sort]').forEach(header => {
+        header.addEventListener('click', () => {
+            const field = header.dataset.sort;
+            if (dayDetailSort.field === field) {
                 dayDetailSort.order = dayDetailSort.order === 'asc' ? 'desc' : 'asc';
             } else {
-                dayDetailSort = { field: 'amount', order: 'desc' };
+                // 切换到新字段：时间默认升序，金额默认降序
+                dayDetailSort = { field, order: field === 'time' ? 'asc' : 'desc' };
             }
             renderDayDetail(year, month, day, bills);
         });
-    }
+    });
 }
 
 function clearDayDetail() {

@@ -31,6 +31,11 @@ export async function fetchExpenseByCategory(filters = {}) {
     return res.json();
 }
 
+export async function fetchBudgetSummary(filters = {}) {
+    const res = await fetch('/api/bills/budget_summary' + buildQuery(filters));
+    return res.json();
+}
+
 export async function fetchLargeOrders(limit = 5, filters = {}) {
     const params = { ...filters, limit };
     const res = await fetch('/api/bills/large_orders' + buildQuery(params));

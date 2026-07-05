@@ -1,0 +1,94 @@
+{
+  "categories_structure": {
+    "Goals": [
+      "Emergency Fund",
+      "General Savings",
+      "Investments"
+    ],
+    "Liability": [
+      "Bai Tiao",
+      "Credit Card",
+      "Hua Bei"
+    ],
+    "Quality of Life": [
+      "Clothing",
+      "Dining out",
+      "Drinks",
+      "Education & Courses",
+      "Entertainment",
+      "Pets",
+      "Snacks",
+      "Social",
+      "Sports",
+      "Stuff I forgot to plan for"
+    ],
+    "Everyday Expenses": [
+      "Diet",
+      "Grocery",
+      "Health",
+      "Home Maintenance",
+      "Household Supplies",
+      "Pets",
+      "Transportation"
+    ],
+    "Bills": [
+      "AI Subscription",
+      "Annual Subscriptions",
+      "HairCut",
+      "Rent",
+      "TV, phone and internet"
+    ],
+    "Irregular And Annual Expenses": [
+      "Household Supplies (Bulk)",
+      "Tech & Others",
+      "Trip & Holiday"
+    ],
+    "Salary": [
+      "Salary"
+    ]
+  },
+  "bills_distribution": {
+    "Quality of Life": {
+      "Social": 11,
+      "Drinks": 77,
+      "Diet": 10,
+      "Entertainment": 22,
+      "Stuff I forgot to plan for": 2,
+      "Clothing": 33,
+      "Sports": 6,
+      "Snacks": 2
+    },
+    "Everyday Expenses": {
+      "Diet": 530,
+      "Transportation": 73,
+      "Health": 15,
+      "Grocery": 100,
+      "Sports": 1,
+      "Pets": 51,
+      "Home Maintenance": 8,
+      "Household Supplies": 12
+    },
+    "Irregular And Annual Expenses": {
+      "Tech & Others": 14,
+      "Entertainment": 2,
+      "Diet": 6,
+      "Trip & Holiday": 13
+    },
+    "Bills": {
+      "TV, phone and internet": 18,
+      "AI Subscription": 3,
+      "Rent": 10,
+      "Annual Subscriptions": 14,
+      "HairCut": 2
+    },
+    "Goals": {
+      "Investments": 2
+    }
+  },
+  "cross_major_subs": {
+    "Pets": [
+      "Everyday Expenses",
+      "Quality of Life"
+    ]
+  }
+}

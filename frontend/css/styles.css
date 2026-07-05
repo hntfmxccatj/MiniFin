@@ -6,8 +6,8 @@
     --text-muted: #64748b;
     --accent: #0284c7;
     --accent-light: #f0f9ff;
-    --expense: #e11d48;
-    --income: #16a34a;
+    --expense: #2563eb;
+    --income: #0d9488;
     --refund: #d97706;
     --wechat: #059669;
     --alipay: #2563eb;
@@ -376,8 +376,8 @@ tr:hover td { background: #f8fafc; }
     font-size: 11px;
     font-weight: 600;
 }
-.badge.expense { background: #ffe4e6; color: var(--expense); }
-.badge.income  { background: #dcfce7; color: var(--income); }
+.badge.expense { background: #dbeafe; color: var(--expense); }
+.badge.income  { background: #ccfbf1; color: var(--income); }
 .badge.refund  { background: #fef3c7; color: var(--refund); }
 .badge.wechat  { background: #d1fae5; color: var(--wechat); }
 .badge.alipay  { background: #dbeafe; color: var(--alipay); }
@@ -692,24 +692,24 @@ td select:focus { border-color: var(--accent); }
     border-radius: 4px;
     border: 1px solid rgba(0,0,0,0.05);
 }
-.legend-box.level-1 { background: #ffedd5; }
-.legend-box.level-2 { background: #fdba74; }
-.legend-box.level-3 { background: #fb923c; }
-.legend-box.level-4 { background: #f97316; }
-.legend-box.level-5 { background: #c2410c; }
+.legend-box.level-1 { background: #dbeafe; }
+.legend-box.level-2 { background: #93c5fd; }
+.legend-box.level-3 { background: #60a5fa; }
+.legend-box.level-4 { background: #3b82f6; }
+.legend-box.level-5 { background: #1e40af; }
 
 .cal-day.level-0 { background: #f8fafc; }
 .cal-day.level-0 .cal-day-amount { display: none; }
-.cal-day.level-1 { background: #ffedd5; border-color: #fed7aa; }
-.cal-day.level-1 .cal-day-amount { color: #c2410c; }
-.cal-day.level-2 { background: #fdba74; border-color: #fb923c; }
-.cal-day.level-2 .cal-day-amount { color: #7c2d12; }
-.cal-day.level-3 { background: #fb923c; border-color: #f97316; }
+.cal-day.level-1 { background: #dbeafe; border-color: #bfdbfe; }
+.cal-day.level-1 .cal-day-amount { color: #1e40af; }
+.cal-day.level-2 { background: #93c5fd; border-color: #60a5fa; }
+.cal-day.level-2 .cal-day-amount { color: #1e3a8a; }
+.cal-day.level-3 { background: #60a5fa; border-color: #3b82f6; }
 .cal-day.level-3 .cal-day-amount { color: #fff; }
-.cal-day.level-4 { background: #f97316; border-color: #ea580c; }
+.cal-day.level-4 { background: #3b82f6; border-color: #2563eb; }
 .cal-day.level-4 .cal-day-amount { color: #fff; }
 .cal-day.level-4 .cal-day-number { color: #fff; }
-.cal-day.level-5 { background: #c2410c; border-color: #9a3412; }
+.cal-day.level-5 { background: #1e40af; border-color: #1e3a8a; }
 .cal-day.level-5 .cal-day-amount { color: #fff; }
 .cal-day.level-5 .cal-day-number { color: #fff; }
 
